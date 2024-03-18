@@ -5,7 +5,7 @@
   "type": "module",
   "main": "index.js",
   "scripts": {
-    "dev": "nodemon index.js"   
+    "dev": "nodemon index.js"
   },
   "keywords": [
     "Javascript",
@@ -14,6 +14,7 @@
   "author": "Harsheet",
   "license": "ISC",
   "devDependencies": {
-    "nodemon": "^3.1.0"
+    "nodemon": "^3.1.0",
+    "prettier": "^3.2.5"
   }
 }
