@@ -1,11 +1,9 @@
 import dotenv from 'dotenv'
 import connectDB from "./DB/index.js";
-import express from "express"
-
-const app=express();
+import app from './app.js';
 
 dotenv.config({
-    path: './env' //where is our env file
+    path: './.env' //where is our env file
 })
 
 connectDB() //since it reutrn a promise(async way?) 

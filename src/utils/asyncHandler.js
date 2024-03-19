@@ -1,7 +1,7 @@
 //this is wrapper function used many where in the code
 
 const asyncHandler = (requestHandler) => {
-  (req, res, next) => {
+ return (req, res, next) => {
     Promise.resolve(requestHandler(req, res, next)).catch((error) =>
       next(error)
     );
