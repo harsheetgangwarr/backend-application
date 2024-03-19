@@ -31,4 +31,11 @@ app.use(
 //to keep files like pdf ,favicon,image
 app.use(express.static("public"));
 
-export default app;
+//routes import 
+import userRouter from './routes/user.routes.js';
+
+//routes declaration,for routes we use app.use instead of app.get 
+//we generally define good api for defining the verion like  /api/v1/users
+app.use("/api/v1/users",userRouter);
+
+export default app; 
