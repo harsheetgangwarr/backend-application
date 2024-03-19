@@ -1,5 +1,8 @@
 import dotenv from 'dotenv'
 import connectDB from "./DB/index.js";
+import express from "express"
+
+const app=express();
 
 dotenv.config({
     path: './env' //where is our env file
@@ -9,7 +12,7 @@ connectDB() //since it reutrn a promise(async way?)
 .then(()=>{
     //since mongodb is connnected but app not listening
     app.listen(process.env.PORT|| 8000,()=>{
-        console.log(`listening on ${process.env.PORT}`)
+        console.log(` Port listening on ${process.env.PORT}`)
     } )
 })
 .catch((error)=>{
