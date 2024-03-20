@@ -5,7 +5,7 @@ import apiError from "./../utils/apiError.js";
 import { User } from "./../models/user.models.js";
 import uploadOnCloudinary from "../utils/cloudinary.js";
 import apiResponse from "../utils/apiResponse.js";
-import { response } from "express";
+import { jwt } from "jsonwebtoken";
 
 const generateAccessAndRefreshTokens = async (userId) => {
   try {
@@ -135,7 +135,8 @@ export const loginUser = asyncHandler(async (req, res) => {
 
   const { email, username, password } = req.body;
 
-  if (!username || !email) {
+  //either one of them
+  if (!(username || email)) {
     throw new apiError(404, "Username or email is required");
   }
   //mongoDB ka User
@@ -171,7 +172,8 @@ export const loginUser = asyncHandler(async (req, res) => {
   };
 
   return (
-    res.status(200)
+    res
+      .status(200)
       .cookie("accessToken", accessToken, options)
       .cookie("refreshToken", refreshToken, options)
       //good practice to send this kind of user (after,200 operation)
@@ -186,13 +188,13 @@ export const loginUser = asyncHandler(async (req, res) => {
 });
 
 //remove cookie and reset refreshToken before logging out
-//here we have to design our own middleware since we dont have access to user._id(logout pr click kr dia hai)
+//here we have to design our own middleware since we dont have access to user._id(login k wqty to email , username se login krlia tha logout k  wqt thodi na email dengey)
 export const logoutUser = asyncHandler(async (req, res) => {
- await User.findByIdAndUpdate(
+  await User.findByIdAndUpdate(
     req.user._id,
     {
-      $set: {
-        refreshToken: undefined,
+      $unset: {
+        refreshToken: 1,
       },
     },
     {
@@ -210,6 +212,62 @@ export const logoutUser = asyncHandler(async (req, res) => {
     .clearCookie("accessToken", options)
     .clearCookie("refreshToken", options)
     .json(new apiResponse(200, {}, "User logged out successfully"));
+});
+
+//making an endpoint so that if user s access token got expired , he can hit an api end point and refresh its access token
+
+export const refreshAccessToken = asyncHandler(async (req, res, next) => {
+  const incomingRefreshToken =
+    req.cookies.refreshToken || req.body.refreshToken; //might b from mobile so we use body
+
+  if (!incomingRefreshToken) {
+    throw new apiError(401, "Refresh token not received");
+  }
+
+  //wrap inside try catch as some error might come
+  try {
+    //verify incoming token
+    const decodedToken = jwt.verify(
+      incomingRefreshToken,
+      process.env.REFRESH_TOKEN_SECRET
+    );
+
+    const user = await User.findById(decodedToken.user._id);
+
+    if (!user) {
+      throw new apiError(401, "user not found after incoming refresh token");
+    }
+
+    //check incoming refresh token and user's refresh token
+    if (incomingRefreshToken != user?.refreshToken) {
+      throw new apiError(401, "Refresh token is expired or used");
+    }
+
+    //if matched then generate new token by generateaccessandrefreshtoken funtion
+    //since i have send in cookies so options is required
+
+    const options = {
+      httpOnly: true,
+      secure: true,
+    };
+
+    const { accessToken, newRefreshToken } =
+      await generateAccessAndRefreshTokens(user._id);
+
+    return res
+      .status(200)
+      .cookie("accessToken", accessToken, options)
+      .cookie("refreshToken", newRefreshToken, options)
+      .json(
+        new apiResponse(
+          200,
+          { accessToken, refreshToken: newRefreshToken },
+          "Refresh token refreshed successfully"
+        )
+      );
+  } catch (error) {
+    throw new apiError(401, error?.message || "Invalid refresh Token");
+  }
 });
 
 export default registerUser;
