@@ -1,9 +1,10 @@
 import mongoose from "mongoose";
-import jwt from "jwt"; //for encryption (need help of some mongoose hooks)
+import jwt from "jsonwebtoken";
+//for encryption (need help of some mongoose hooks)
 //jwt is a bearer token means that who bears it , is correct (means jiske pass yahi hoga uske passwords bhej dega)
 import bcrypt from "bcrypt"; //for encryption (need help of some mongoose hooks)
 
-const userSchema = new mongoose.monSchema(
+const userSchema = new mongoose.Schema(
   {
     username: {
       type: String,

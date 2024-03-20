@@ -10,11 +10,12 @@ router.route("/register").post(
     {
       name: "avatar",
       maxCount: 1,
-    }, //two objects for images and avatar in 1 file
+    }, 
     {
-      name: "coverImage",
+      name: "coverimage",
       maxCount: 1,
-    },
+      }
+      //two objects for images and avatar in 1 file
   ]),
   registerUser
 );

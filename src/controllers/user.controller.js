@@ -1,14 +1,14 @@
 //here we have to use asyncHandler
 
 import asyncHandler from "../utils/asyncHandler.js";
-import apiError from "./../utils/apiError.s";
-import { User } from "./../models/user.models";
+import apiError from "./../utils/apiError.js";
+import { User } from "./../models/user.models.js";
 import uploadOnCloudinary from "../utils/cloudinary.js";
 import apiResponse from "../utils/apiResponse.js";
 
 const registerUser = asyncHandler(async (req, res) => {
   /**
-   * 1.Get details of the user
+   * 1.Get details of the user`
    * 2.Validate the data by the user (not empty)
    * 3.Check if the user exists in the database:check by username and email
    * 4.Check for images, check avatar
@@ -18,7 +18,7 @@ const registerUser = asyncHandler(async (req, res) => {
    * 8.Check for user creation
    * 9.return the response(if user successfully created)
    */
-
+   
   //1 step
   const { fullname, email, password, username } = req.body;
   //some advanced code
@@ -34,7 +34,7 @@ const registerUser = asyncHandler(async (req, res) => {
   }
 
   //3 step
-  const existedUSer = User.findOne({
+  const existedUSer = await User.findOne({
     $or: [{ username }, { email }],
   });
 
@@ -42,9 +42,18 @@ const registerUser = asyncHandler(async (req, res) => {
     throw new apiError(404, "User already exists");
   }
 
+  
+
   //4 step (req.files from multer gives us object and we can extract path from it)
-  const avatarLocalPath = req.files?.avatar[0]?.path;
-  const coverimageLocalPath = req.files?.coverimage[0]?.path;
+ const avatarLocalPath = await req.files?.avatar[0]?.path;
+
+  //if coverimage not present
+   let coverImageLocalPath;
+   if(req.files && Array.isArray(req.files.coverimage) &&
+   req.files.coverimage.length>0){
+    coverImageLocalPath = req.files.coverimage[0].path;
+   }
+
 
   if (!avatarLocalPath) {
     throw new apiError(404, "Avatar not found");
@@ -52,10 +61,10 @@ const registerUser = asyncHandler(async (req, res) => {
 
   //5 step
   const avatar = await uploadOnCloudinary(avatarLocalPath);
-  const coverimage = await uploadOnCloudinary(coverimageLocalPath);
+  const coverimage = await uploadOnCloudinary(coverImageLocalPath);
 
   if (!avatar) {
-    throw new apiError(404, "Avatar not found");
+    throw new apiError(404, "Avatar in 61 line not found");
   }
 
   //6 step create user with given data
@@ -68,7 +77,7 @@ const registerUser = asyncHandler(async (req, res) => {
     coverimage: coverimage?.url || "", //since coveriamge can be availabel or not
   });
 
-   //7 step
+  //7 step
   const createdUser = await User.findById(user._id).select(
     "-password -refreshToken" //initail all are select and - denotes to remove it
   );
@@ -78,11 +87,10 @@ const registerUser = asyncHandler(async (req, res) => {
     throw new apiError(500, "Something went wrong while creating user");
   }
 
- //9 step return response in a good way
- return res.status(201).json(
-  new apiResponse(200,createdUser,"User created successfully")
- )
-
+  //9 step return response in a good way
+  return res
+    .status(201)
+    .json(new apiResponse(200, createdUser, "User created successfully"));
 });
 
 export default registerUser;
