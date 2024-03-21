@@ -4,8 +4,7 @@ import apiError from "./../utils/apiError.js";
 import { User } from "./../models/user.models.js";
 import uploadOnCloudinary from "../utils/cloudinary.js";
 import apiResponse from "../utils/apiResponse.js";
-import { jwt } from "jsonwebtoken";
-import asyncHandler from "./../utils/asyncHandler";
+import jwt from "jsonwebtoken";
 
 const generateAccessAndRefreshTokens = async (userId) => {
   try {
@@ -406,5 +405,136 @@ export const updateUserCoverImage = asyncHandler(async (req, res) => {
     );
 });
 
+//get channel info (name and all ) and apply aggregate pipleline
+export const getUserChannelProfile = asyncHandler(async (req, res) => {
+  const { username } = req.params;
+
+  if (!username?.trim()) {
+    throw new apiError(
+      401,
+      "Username is missing(usercontroller getusercahnnelprofile"
+    );
+  }
+
+  const channel = await User.aggregate([
+    {
+      $match: {
+        username: username?.toLowerCase(), //basically channel ajaega
+      },
+    },
+    {
+      //finding subscribers
+      $lookup: {
+        from: "subscriptions", //jo data base me store hoti (Subscriber)
+        localField: "_id",
+        foreignField: "channel",
+        as: "subscribers",
+      },
+    },
+    //finding the following ki hamne kitne kare hai
+    {
+      //subscribed to ki pipeline
+      $lookup: {
+        from: "subscriptions",
+        localField: "_id",
+        foreignField: "subscriber",
+        as: "subscribedTo",
+      },
+    },
+    //now we get subscribers and subscriberTi field and now add them up
+    {
+      $addFields: {
+        //to get subscriber count
+        subscribersCount: { $size: "$subscribers" },
+        //to get subscribed to count
+        channelsSubscribedToCount: { $size: "$subscribedTo" },
+        //whether a subscriber is subscribed or not (user agr us particular)
+        isSubscribed: {
+          $cond: {
+            if: { $in: [req.user?._id, " $subscribers.subscriber"] },
+            then: true,
+            else: false,
+          },
+        },
+      },
+    },
+    //now users have two more info about 1. Subscriber count 2. Subscriber to count
+    //KON KON SI VALUE DENI HAI WO PASS KRDO AS 1 VALUE
+    {
+      $project: {
+        username: 1,
+        fullname: 1,
+        email: 1,
+        avatar: 1,
+        coverimage: 1,
+        isSubscribed: 1,
+        subscribersCount: 1,
+        channelsSubscribedToCount: 1,
+      },
+    },
+  ]);
+
+  //we got channel mostly as a array
+  if (!channel?.length) {
+    throw new apiError(401, "Channel does not exist");
+  }
+
+  return res
+    .status(200)
+    .json(new apiResponse(200, channel[0], "Channel fetched successfully")); //we have to return 0 th index of the channel
+});
+
+//get watch histroy 
+export const getWatchHistory = asyncHandler(async (req, res) => {
+  const user = await User.aggregate([
+    {
+      $match: {
+        _id: new mongoose.Types.ObjectId(req.user?._id), //because we got _id as a string ans mongoose handles all
+      },
+    },
+    {
+      $lookup: {
+        from: "videos",
+        localField: "watchhistory",
+        foreignField: "_id",
+        as: "watchhistory",
+        pipeline: [
+          //nested pipelining because videos k andar bhi to owner hai
+          {
+            $lookup: {
+              from: "users",
+              localField: "owner",
+              foreignField: "_id",
+              as: "owner",
+              pipeline: [   //but we dont want to send whole user data but only few data
+                {
+                  $project: {
+                    username: 1,
+                    fullname: 1,
+                    avatar: 1,
+                  },
+                },
+              ], 
+            },
+          },
+          //now to make front end person work easier , we can send only one object instead of array of multiple object
+          {
+            $addFields: {
+              owner: {
+                $first: "$owner", //to send him just owner object
+              },
+            },
+          },
+        ],
+      },
+    },
+  ]);
+
+  return res
+  .status(200)
+  .json(
+    new apiResponse(200, user[0].watchhistory, "Watch History fetched successfully")
+  )
+});
 
 export default registerUser;
