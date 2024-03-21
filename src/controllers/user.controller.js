@@ -5,6 +5,7 @@ import { User } from "./../models/user.models.js";
 import uploadOnCloudinary from "../utils/cloudinary.js";
 import apiResponse from "../utils/apiResponse.js";
 import { jwt } from "jsonwebtoken";
+import asyncHandler from "./../utils/asyncHandler";
 
 const generateAccessAndRefreshTokens = async (userId) => {
   try {
@@ -268,5 +269,142 @@ export const refreshAccessToken = asyncHandler(async (req, res, next) => {
     throw new apiError(401, error?.message || "Invalid refresh Token");
   }
 });
+
+//basic activities while creating user
+export const changeCurrentPassword = asyncHandler(async (req, res) => {
+  const { oldPassword, newPassword } = req.body;
+
+  // if(! (isPasswordCorrect ===confirmPassword)){
+  //   throw new apiError(401, "Passwords do not match");
+  // }
+  //in databse opration, 'User' is used
+  const user = await User.findById(req.user?._id);
+
+  const isPasswordCorrect = await user.isPasswordCorrect(oldPassword);
+
+  if (!isPasswordCorrect) {
+    throw new apiError(401, "Invalid old password ");
+  }
+
+  user.password = newPassword;
+
+  //since databse is in other continent
+  await user.save({ validateBeforeSave: false });
+
+  //Now return user tht password is saved succesfully
+  return res
+    .status(200)
+    .json(new apiResponse(200, {}, "Password changed successfully"));
+});
+
+export const getCurrentUser = asyncHandler(async (req, res) => {
+  return res
+    .status(200)
+    .json(
+      new apiResponse(
+        200,
+        { user: req.user },
+        " Current User fetched successfully"
+      )
+    );
+});
+
+//now you can choose what details are you want a user can edit
+
+export const updateAccountDetails = asyncHandler(async (req, res) => {
+  const { fullname, email } = req.body;
+
+  if (!(fullname && email)) {
+    throw new apiError(401, "All fields are required (usr controler)");
+  }
+
+  const user = await User.findById(req.user?._id);
+
+  if (!user) {
+    throw new apiError(401, "User not found");
+  }
+
+  user.fullname = fullname;
+  user.email = email;
+  await user
+    .save({ validateBeforeSave: false })
+    .select("-password -refreshToken");
+
+  return res
+    .status(200)
+    .json(
+      new apiResponse(
+        200,
+        { user: user },
+        "Account details updated successfully"
+      )
+    );
+});
+
+//now if you want to update files
+export const updateUserAvatar = asyncHandler(async (req, res) => {
+  const avatarLocalPath = req.file?.path;
+  //we can directly save to the DB
+
+  if (!avatarLocalPath) {
+    throw new apiError(401, "Avatar path is missing");
+  }
+
+  const avatar = await uploadOnCloudinary(avatarLocalPath);
+
+  //this avatar is whole object , but we eant just url
+
+  if (!avatar.url) {
+    throw new apiError(401, "Error while uploading avatar");
+  }
+
+  const user = await User.findByIdAndUpdate(
+    req.user?._id,
+    {
+      $set: {
+        avatar: avatar.url,
+      },
+    },
+    { new: true }
+  ).select("-password");
+
+  return res
+    .status(200)
+    .json(new apiResponse(200, { user: user }, "Avatar updated successfully"));
+});
+
+export const updateUserCoverImage = asyncHandler(async (req, res) => {
+  const coverImageLocalPath = req.file?.path;
+  //we can directly save to the DB
+
+  if (!coverImageLocalPath) {
+    throw new apiError(401, "Cover Image path is missing");
+  }
+
+  const coverimage = await uploadOnCloudinary(coverImageLocalPath);
+
+  //this avatar is whole object , but we eant just url
+
+  if (!coverimage.url) {
+    throw new apiError(401, "Error while uploading Cover Image");
+  }
+
+  const user = await User.findByIdAndUpdate(
+    req.user?._id,
+    {
+      $set: {
+        coverimage: coverimage.url,
+      },
+    },
+    { new: true }
+  ).select("-password");
+
+  return res
+    .status(200)
+    .json(
+      new apiResponse(200, { user: user }, "Cover Image updated successfully")
+    );
+});
+
 
 export default registerUser;
